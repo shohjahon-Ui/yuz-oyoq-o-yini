@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>100 oyoqli robot</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --bg2: #0f1830;
+    --accent: #38bdf8;
+    --accent2: #f59e0b;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f1f5f9;
+      --bg2: #e2e8f0;
+      --text: #0f172a;
+      --muted: #475569;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1220;
+    --bg2: #0f1830;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+  }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    overflow: hidden;
+  }
+  #ui {
+    position: fixed;
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  #ui h1 {
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: 0.5px;
+  }
+  #ui p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+  #legCount {
+    position: fixed;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    right: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    z-index: 5;
+  }
+  #bgBtn {
+    position: fixed;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    left: 14px;
+    z-index: 5;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+  }
+  #bgBtn:hover {
+    background: rgba(255,255,255,0.15);
+  }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <h1>🦿 100 oyoqli robot</h1>
+  <p>Sichqonchani (yoki barmog'ingizni) harakatlantiring — robot orqangizdan yuradi</p>
+</div>
+<div id="legCount"></div>
+<button id="bgBtn">🎨 Fonni almashtirish</button>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth * devicePixelRatio;
+  canvas.height = window.innerHeight * devicePixelRatio;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const SEGMENTS = 50;      // tana bo'g'inlari soni
+const LEGS_PER_SEGMENT = 2; // har bo'g'inda 2 oyoq -> jami 100 oyoq
+const SPACING = 14;       // bo'g'inlar orasidagi masofa
+
+let target = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+let hasPointer = false;
+
+window.addEventListener('mousemove', (e) => {
+  target.x = e.clientX;
+  target.y = e.clientY;
+  hasPointer = true;
+});
+window.addEventListener('touchmove', (e) => {
+  if (e.touches.length > 0) {
+    target.x = e.touches[0].clientX;
+    target.y = e.touches[0].clientY;
+    hasPointer = true;
+  }
+}, { passive: true });
+
+// Bo'g'inlar zanjiri: har biri {x,y,angle}
+const chain = [];
+for (let i = 0; i < SEGMENTS; i++) {
+  chain.push({ x: target.x - i * SPACING, y: target.y, angle: 0 });
+}
+
+let t = 0;
+
+function update() {
+  // Bosh bo'g'in maqsad tomon yumshoq harakatlanadi
+  const head = chain[0];
+  const dx = target.x - head.x;
+  const dy = target.y - head.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > 1) {
+    head.angle = Math.atan2(dy, dx);
+    const speed = Math.min(dist * 0.12, 14);
+    head.x += Math.cos(head.angle) * speed;
+    head.y += Math.sin(head.angle) * speed;
+  }
+
+  // Qolgan bo'g'inlar oldingisiga "SPACING" masofada ergashadi
+  for (let i = 1; i < chain.length; i++) {
+    const prev = chain[i - 1];
+    const cur = chain[i];
+    const a = Math.atan2(prev.y - cur.y, prev.x - cur.x);
+    cur.angle = a;
+    cur.x = prev.x - Math.cos(a) * SPACING;
+    cur.y = prev.y - Math.sin(a) * SPACING;
+  }
+}
+
+const BG_THEMES = [
+  { name: 'Tungi koinot', stops: ['#1e293b', '#020617'], stars: true },
+  { name: 'Quyosh botishi', stops: ['#f97316', '#7c2d12'], stars: false },
+];
+let bgIndex = 0;
+
+// yulduzlarni bir marta hisoblab qo'yamiz (har kadrda qayta yaratmaslik uchun)
+const stars = Array.from({ length: 120 }, () => ({
+  x: Math.random(),
+  y: Math.random(),
+  r: Math.random() * 1.5 + 0.3,
+  twinkle: Math.random() * Math.PI * 2,
+}));
+
+document.getElementById('bgBtn').addEventListener('click', () => {
+  bgIndex = (bgIndex + 1) % BG_THEMES.length;
+});
+
+function draw() {
+  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+  // fon effekti (tanlangan tema bo'yicha)
+  const theme = BG_THEMES[bgIndex];
+  const grad = ctx.createRadialGradient(
+    window.innerWidth / 2, window.innerHeight / 2, 0,
+    window.innerWidth / 2, window.innerHeight / 2, Math.max(window.innerWidth, window.innerHeight) / 1.2
+  );
+  grad.addColorStop(0, theme.stops[0]);
+  grad.addColorStop(1, theme.stops[1]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+  if (theme.stars) {
+    for (const s of stars) {
+      const alpha = 0.4 + Math.sin(t * 0.02 + s.twinkle) * 0.4;
+      ctx.beginPath();
+      ctx.arc(s.x * window.innerWidth, s.y * window.innerHeight, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${Math.max(0, alpha)})`;
+      ctx.fill();
+    }
+  }
+
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const accent2 = getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim();
+
+  // Oyoqlarni chizish (har bo'g'inda 2 tadan, tebranib turadi)
+  for (let i = 0; i < chain.length; i++) {
+    const seg = chain[i];
+    const legPhase = Math.sin(t * 0.3 + i * 0.8) * 10;
+    const legLen = 16;
+
+    for (let side = -1; side <= 1; side += 2) {
+      const legAngle = seg.angle + (side * Math.PI / 2);
+      const footWobble = Math.sin(t * 0.3 + i * 0.8 + (side > 0 ? Math.PI : 0)) * 6;
+
+      const hipX = seg.x + Math.cos(legAngle) * 6;
+      const hipY = seg.y + Math.sin(legAngle) * 6;
+      const footX = seg.x + Math.cos(legAngle) * legLen + Math.cos(seg.angle) * footWobble;
+      const footY = seg.y + Math.sin(legAngle) * legLen + Math.sin(seg.angle) * footWobble;
+      const kneeX = (hipX + footX) / 2 + Math.cos(seg.angle) * legPhase * 0.3;
+      const kneeY = (hipY + footY) / 2 + Math.sin(seg.angle) * legPhase * 0.3;
+
+      ctx.strokeStyle = accent2;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(hipX, hipY);
+      ctx.lineTo(kneeX, kneeY);
+      ctx.lineTo(footX, footY);
+      ctx.stroke();
+    }
+  }
+
+  // Tanani chizish (bosh boshqa rangda, kattaroq)
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const seg = chain[i];
+    const isHead = i === 0;
+    const radius = isHead ? 16 : Math.max(5, 10 - i * 0.08);
+
+    ctx.beginPath();
+    ctx.arc(seg.x, seg.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = isHead ? accent2 : accent;
+    ctx.globalAlpha = isHead ? 1 : 0.9;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    if (isHead) {
+      // ko'zlar
+      const eyeOffset = Math.PI / 5;
+      for (const side of [-1, 1]) {
+        const ex = seg.x + Math.cos(seg.angle + side * eyeOffset) * radius * 0.7;
+        const ey = seg.y + Math.sin(seg.angle + side * eyeOffset) * radius * 0.7;
+        ctx.beginPath();
+        ctx.arc(ex, ey, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#0b1220';
+        ctx.fill();
+      }
+    }
+  }
+}
+
+document.getElementById('legCount').textContent =
+  `Jami oyoqlar: ${SEGMENTS * LEGS_PER_SEGMENT}`;
+
+function loop() {
+  t++;
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+
+</body>
+</html>
